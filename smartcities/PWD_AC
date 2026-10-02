@@ -1,1 +1,35 @@
+from machine import PWM, Pin
+import time
+
+buzzer = PWM(Pin(27))
+dic = {
+    'DO': 262, 'RE': 294, 'MI': 330, 'FA': 349, 
+    'SOL': 392, 'LA': 440, 'SI': 494,
+    'DO5': 523, 'RE5': 587, 'MI5': 659
+}
+star_wars = [
+    ('SOL', 0.2), ('SOL', 0.2), ('SOL', 0.2),
+    ('DO5', 0.8), ('SOL', 0.8),
+    ('FA', 0.2), ('MI', 0.2), ('RE', 0.2), ('DO5', 0.8), ('SOL', 0.4),
+    ('FA', 0.2), ('MI', 0.2), ('RE', 0.2), ('DO5', 0.8), ('SOL', 0.4),
+    ('FA', 0.2), ('MI', 0.2), ('FA', 0.2), ('RE', 0.8)
+] 
+
+
+
+while True:
+    for note, duree in star_wars:
+        frequence = dic[note]
+        buzzer.freq(frequence)
+        buzzer.duty_u16(500)
+        time.sleep(duree)
+        buzzer.duty_u16(0)
+        time.sleep(0.03)
+    time.sleep(3.0)
+        
+    
+    
+    
+
+
 
