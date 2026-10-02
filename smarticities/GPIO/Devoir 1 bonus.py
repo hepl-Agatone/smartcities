@@ -17,11 +17,12 @@ while True:
         if utime.ticks_diff(t2, check) >= 1000000:
             check = t2
             b=1
-            for i in range(10):
-                LED.value(0)
-                utime.sleep(0.05)
-                LED.value(1)
-                utime.sleep(0.05)
+            if value % 2 == 1:
+                for i in range(10):
+                    LED.value(0)
+                    utime.sleep(0.05)
+                    LED.value(1)
+                    utime.sleep(0.05)
                 
                     
     if BUTTON.value()==0 and b == 1:
@@ -32,7 +33,7 @@ while True:
             value=0
         
         
-    if value == 2:
+    if value == 2 or value == 3 :
         
         if time.ticks_diff(t2,t1) >= 1000000:
             
@@ -42,7 +43,7 @@ while True:
            
             
             
-    elif value == 4:
+    elif value == 4 or value == 5 :
         if time.ticks_diff(t2,t1) >= 200000:
             
             LED.value(not LED.value())                 
