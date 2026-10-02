@@ -1,7 +1,10 @@
-from machine import PWM, Pin
+from machine import PWM, Pin,ADC
 import time
 
 buzzer = PWM(Pin(27))
+rotary = ADC(0)
+VOLUME_MAX = 5000
+
 dic = {
     'DO': 262, 'RE': 294, 'MI': 330, 'FA': 349, 
     'SOL': 392, 'LA': 440, 'SI': 494,
@@ -20,8 +23,11 @@ star_wars = [
 while True:
     for note, duree in star_wars:
         frequence = dic[note]
+        valeur = rotary.read_u16()
+        pourcentage = (valeur / 65535) * 100
+        volume_final = int((pourcentage / 100) * VOLUME_MAX)
         buzzer.freq(frequence)
-        buzzer.duty_u16(500)
+        buzzer.duty_u16(volume_final)
         time.sleep(duree)
         buzzer.duty_u16(0)
         time.sleep(0.03)
@@ -30,6 +36,5 @@ while True:
     
     
     
-
 
 
