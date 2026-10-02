@@ -1,0 +1,115 @@
+from machine import PWM, Pin, ADC  # Importation des modules pour contrôler le matériel (PWM, Broches, Convertisseur Analogique/Numérique)
+import time                        # Importation du module de gestion du temps
+
+# ==========================================
+# 1. CONFIGURATION DES COMPOSANTS (MATÉRIEL)
+# ==========================================
+buzzer = PWM(Pin(27))                   # Crée un signal PWM sur la broche 27 pour faire varier la fréquence du buzzer (générer les notes)
+bouton = Pin(18, Pin.IN, Pin.PULL_DOWN) # Configure la broche 18 en entrée avec résistance de PULL_DOWN (évite les signaux parasites)
+rotary = ADC(0)                         # Initialise le potentiomètre sur le canal ADC 0 pour lire une tension analogique
+led = Pin(16, Pin.OUT)                  # Configure la broche 16 en sortie pour contrôler la LED
+VOLUME_MAX = 5000                       # Limite l'intensité du signal PWM pour que le son du buzzer ne soit pas trop fort (max théorique : 65535)
+
+# ==========================================
+# 2. DICTIONNAIRE DES FRÉQUENCES (MUSIQUE)
+# ==========================================
+dic = {
+    # Octave 4 
+    'DO': 262, 'RE': 294, 'MI': 330, 'FA': 349, 
+    'SOL': 392, 'LA': 440, 'SI': 494,
+    
+    # Octave 5 
+    'DO5': 523, 'RE5': 587, 'MI5': 659, 'FA5': 698,
+    'SOL5': 784, 'LA5': 880, 'SI5': 988,
+    
+    # Octave 6 
+    'DO6': 1047
+}
+
+# ==========================================
+# 3. PARTITIONS ET PLAYLIST
+# ==========================================
+star_wars = [
+    ('SOL', 0.2), ('SOL', 0.2), ('SOL', 0.2), ('DO5', 0.8), ('SOL', 0.8),
+    ('FA', 0.2), ('MI', 0.2), ('RE', 0.2), ('DO5', 0.8), ('SOL', 0.4),
+    ('FA', 0.2), ('MI', 0.2), ('RE', 0.2), ('DO5', 0.8), ('SOL', 0.4),
+    ('FA', 0.2), ('MI', 0.2), ('FA', 0.2), ('RE', 0.8)
+]
+
+frere_jacques = [
+    ('DO5', 0.4), ('RE5', 0.4), ('MI5', 0.4), ('DO5', 0.4),
+    ('DO5', 0.4), ('RE5', 0.4), ('MI5', 0.4), ('DO5', 0.4),
+    ('MI5', 0.4), ('FA5', 0.4), ('SOL5', 0.8), 
+    ('MI5', 0.4), ('FA5', 0.4), ('SOL5', 0.8),
+    ('SOL5', 0.2), ('LA5', 0.2), ('SOL5', 0.2), ('FA5', 0.2), ('MI5', 0.4), ('DO5', 0.4),
+    ('SOL5', 0.2), ('LA5', 0.2), ('SOL5', 0.2), ('FA5', 0.2), ('MI5', 0.4), ('DO5', 0.4),
+    ('DO5', 0.4), ('SOL5', 0.4), ('DO5', 0.8), 
+    ('DO5', 0.4), ('SOL5', 0.4), ('DO5', 0.8)
+]
+
+toutes_les_musiques = [star_wars, frere_jacques] # Liste regroupant nos morceaux (Playlist)
+index_musique = 0                                # Pointeur pour savoir quel morceau de la liste jouer (0 = Star Wars, 1 = Frère Jacques)
+
+# ==========================================
+# 4. BOUCLE PRINCIPALE (LECTEUR DE MUSIQUE)
+# ==========================================
+while True:
+    print("Lecture de la musique numéro :", index_musique)
+    changement_demande = False                   # Variable (drapeau) réinitialisée à False au début de chaque morceau
+    musique_actuelle = toutes_les_musiques[index_musique] # Sélection du morceau actuel
+    
+    # Lecture Note par Note du morceau en cours
+    for note, duree in musique_actuelle:
+        frequence = dic[note]                    # Récupère la fréquence correspondante dans le dictionnaire
+        
+        # Lecture du potentiomètre et calcul du volume en temps réel
+        valeur_pot = rotary.read_u16()           # Lit une valeur entre 0 et 65535
+        volume_final = int((valeur_pot / 65535) * VOLUME_MAX) # Adapte la valeur à l'échelle de VOLUME_MAX
+        
+        # Application des paramètres physiques au Buzzer
+        buzzer.freq(frequence)                   # Change la hauteur de la note
+        buzzer.duty_u16(volume_final)            # Règle le volume sonore (rapport cyclique)
+        
+        # Gestion de la LED (elle s'allume uniquement si le volume n'est pas coupé)
+        if volume_final > 0:
+            led.value(1)                         # Allume la LED
+            
+        #Attente active pendant que la note joue (DUREE DE LA NOTE)
+        temps_ecoule = 0
+        while temps_ecoule < duree:
+            if bouton.value() == 1:              # Si le bouton est pressé pendant que la note joue :
+                changement_demande = True        # On lève le drapeau de changement
+                break                            # On sort immédiatement de la boucle d'attente de la note
+            time.sleep(0.01)                     # Petite pause de 10 millisecondes
+            temps_ecoule += 0.01                 # On incrémente le compteur de temps de la note
+            
+        if changement_demande:                   # Si le bouton a été pressé, on stoppe la lecture du morceau actuel
+            break
+            
+        #Micro-pause entre deux notes pour éviter qu'elles ne fusionnent
+        buzzer.duty_u16(0)                       # Coupe le son du buzzer
+        led.value(0)                             # Éteint la LED
+        
+        temps_ecoule = 0
+        while temps_ecoule < 0.03:               # Pause fixe de 30 millisecondes
+            if bouton.value() == 1:              # On continue de surveiller le bouton pendant la micro-pause
+                changement_demande = True
+                break
+            time.sleep(0.01)
+            temps_ecoule += 0.01
+            
+        if changement_demande:                   # Si le bouton a été pressé pendant la micro-pause, on stoppe le morceau
+            break
+
+    # ==========================================
+    # 5. GESTION DE LA TRANSITION OU FIN DE MORCEAU
+    # ==========================================
+    buzzer.duty_u16(0)                           # Sécurité : On s'assure que le buzzer est muet
+    led.value(0)                                 # Sécurité : On s'assure que la LED est éteinte
+    
+    if changement_demande:                       # Cas 1 : L'utilisateur a appuyé sur le bouton
+        index_musique = (index_musique + 1) % len(toutes_les_musiques) # Passe à la musique suivante (le % permet de revenir à 0)
+        time.sleep(0.3)                          # Anti-rebond matériel (évite de sauter 2 musiques d'un coup suite à une seule pression)
+    else:                                        # Cas 2 : Le morceau s'est terminé tout seul naturellement
+        time.sleep(1.0)                          # Attente d'une seconde avant de relancer le même morceau en boucle
+
