@@ -18,9 +18,13 @@ buzzer = PWM(Pin(20))
 
 t1=utime.ticks_us()
 t2=utime.ticks_us()
-frequence = 2000
+frequence = 800
+volume = 2000
+temp_MAX = 30
+rotary = ADC(0)
 lcd.clear()
-temp_set = 21
+
+
 
 while True:
     t2 = utime.ticks_us()
@@ -28,16 +32,19 @@ while True:
     humid = dht20.dht20_humidity()
     print("Temperature :", temp)
     print("Humidite :", humid)
-    
-    lcd.setCursor(0, 0)
-    lcd.print(f"Temp: {temp:.1f} C")
-    lcd.setCursor(0, 1)
-    lcd.print(f"Set Temp: {temp_set:.1f}C")
+    valeur_pot = rotary.read_u16()           # Lit une valeur entre 0 et 65535
+    temp_set = int((valeur_pot / 65535) * temp_MAX)
+   
     
     
     if temp >= temp_set + 3 :
         buzzer.freq(frequence)
-        
+        buzzer.duty_u16(volume)
+        lcd.clear()
+        lcd.setCursor(0, 0)
+        lcd.print("!!! ALARME !!!")
+        lcd.setCursor(0, 1)
+        lcd.print("T: {:.1f} C".format(temp))
         if utime.ticks_diff(t2, t1)>=50000:
             LED.value(not LED.value())
             check = utime.ticks_us()
@@ -46,10 +53,25 @@ while True:
             
 
     elif temp >= temp_set:
+        buzzer.duty_u16(0)
+        lcd.clear()
+        lcd.setCursor(0, 0)
+        lcd.print("Temp: {:.1f} C".format(temp))
+        lcd.setCursor(0, 1)
+        lcd.print("Set temp: {:.1f}".format(temp_set))
         if utime.ticks_diff(t2, t1)>=500000:
             LED.value(not LED.value())
-            
             t1 = t2
+    else:
+        # Temperature normale
+        buzzer.duty_u16(0)
+        LED.value(0)
+
+        lcd.clear()
+        lcd.setCursor(0, 0)
+        lcd.print("Temp: {:.1f} C".format(temp))
+        lcd.setCursor(0, 1)
+        lcd.print("Set temp: {:.1f}".format(temp_set))
 
     
     
