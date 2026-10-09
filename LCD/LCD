@@ -1,0 +1,28 @@
+from LCD1602 import LCD1602
+from machine import I2C, Pin
+from utime import sleep
+from dht20 import DHT20
+
+# Initialisation des 2 bus I2C distincts du Pico
+i2c0 = I2C(0, sda=Pin(8), scl=Pin(9))  # Port I2C0 (LCD)
+i2c1 = I2C(1, sda=Pin(6), scl=Pin(7))  # Port I2C1 (DHT20)
+
+# Initialisation des périphériques sur leur bus respectif
+lcd = LCD1602(i2c0, 2, 16)
+dht20 = DHT20(i2c1)
+
+lcd.clear()
+
+while True:
+    temp = dht20.dht20_temperature()
+    humid = dht20.dht20_humidity()
+    print("Temperature :", temp)
+    print("Humidite :", humid)
+    
+    lcd.setCursor(0, 0)
+    lcd.print(f"Temp: {temp:.1f} C")
+    
+    lcd.setCursor(0, 1)
+    lcd.print(f"Hum:  {humid:.1f} %")
+    
+    sleep(3)
