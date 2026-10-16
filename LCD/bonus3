@@ -1,0 +1,95 @@
+
+from LCD1602 import LCD1602
+from machine import I2C, Pin, PWM, ADC
+import utime
+from dht20 import DHT20
+
+# Initialisation des bus I2C
+i2c0 = I2C(0, sda=Pin(8), scl=Pin(9))  # LCD
+i2c1 = I2C(1, sda=Pin(6), scl=Pin(7))  # DHT20
+
+# Initialisation des peripheriques
+lcd = LCD1602(i2c0, 2, 16)
+dht20 = DHT20(i2c1)
+
+LED = PWM(Pin(16))
+LED.freq(1000)
+
+buzzer = PWM(Pin(20))
+buzzer.duty_u16(0)
+
+rotary = ADC(0)
+
+# Parametres
+frequence = 800
+volume = 2000
+temp_MAX = 30
+
+# Variables pour la progression de la LED
+luminosite = 0
+sens = 1
+t_led = utime.ticks_ms()
+
+# Variables pour le clignotement de la LED en alerte
+t_alerte = utime.ticks_ms()
+etat_alerte = 0
+
+lcd.clear()
+
+while True:
+    # Lecture du capteur
+    temp = dht20.dht20_temperature()
+    humid = dht20.dht20_humidity()
+
+    print("Temperature :", temp)
+    print("Humidite :", humid)
+
+    # Lecture du potentiometre
+    valeur_pot = rotary.read_u16()
+    temp_set = (valeur_pot / 65535) * temp_MAX
+
+    maintenant = utime.ticks_ms()
+    
+    if utime.ticks_diff(maintenant, t_led) >= 80:
+        luminosite += sens * 4000
+
+        if luminosite >= 65535:
+            luminosite = 65535
+            sens = -1
+
+        elif luminosite <= 0:
+            luminosite = 0
+            sens = 1
+
+        LED.duty_u16(luminosite)
+        t_led = maintenant
+
+    if temp >= temp_set + 3:
+        buzzer.freq(frequence)
+        buzzer.duty_u16(volume)
+
+        lcd.setCursor(0, 0)
+        lcd.print("!!! ALARME !!!  ")
+        lcd.setCursor(0, 1)
+        lcd.print("T: {:.1f} C       ".format(temp))
+
+    elif temp >= temp_set:
+        buzzer.duty_u16(0)
+
+        lcd.setCursor(0, 0)
+        lcd.print("Temp: {:.1f} C   ".format(temp))
+        lcd.setCursor(0, 1)
+        lcd.print("Set: {:.1f} C    ".format(temp_set))
+
+    # Temperature normale
+    else:
+        buzzer.duty_u16(0)
+        LED.duty_u16(0)
+        lcd.setCursor(0, 0)
+        lcd.print("Temp: {:.1f} C   ".format(temp))
+        lcd.setCursor(0, 1)
+        lcd.print("Set: {:.1f} C    ".format(temp_set))
+
+
+    utime.sleep_ms(20)
+
