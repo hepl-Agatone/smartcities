@@ -1,0 +1,92 @@
+from LCD1602 import LCD1602
+from machine import I2C, Pin
+import utime
+import time
+from dht20 import DHT20
+from machine import PWM, Pin, ADC
+
+
+# Initialisation des 2 bus I2C distincts du Pico
+i2c0 = I2C(0, sda=Pin(8), scl=Pin(9))  # Port I2C0 (LCD)
+i2c1 = I2C(1, sda=Pin(6), scl=Pin(7))  # Port I2C1 (DHT20)
+
+# Initialisation des périphériques sur leur bus respectif
+lcd = LCD1602(i2c0, 2, 16)
+dht20 = DHT20(i2c1)
+LED = Pin(16, Pin.OUT)
+buzzer = PWM(Pin(20))
+
+t1=utime.ticks_us()
+t2=utime.ticks_us()
+frequence = 800
+volume = 2000
+temp_MAX = 30
+rotary = ADC(0)
+lcd.clear()
+message = "ALARME          "
+position = 16
+
+
+
+while True:
+    t2 = utime.ticks_us()
+    temp = dht20.dht20_temperature()
+    humid = dht20.dht20_humidity()
+    print("Temperature :", temp)
+    print("Humidite :", humid)
+    valeur_pot = rotary.read_u16()           # Lit une valeur entre 0 et 65535
+    temp_set = int((valeur_pot / 65535) * temp_MAX)
+   
+    if temp >= temp_set + 3:
+        buzzer.freq(frequence)
+        buzzer.duty_u16(volume)
+
+        # Défilement continu en boucle
+        texte = message * 3
+        affichage = texte[position:position + 16]
+
+        lcd.setCursor(0, 0)
+        lcd.print(affichage)
+
+        lcd.setCursor(0, 1)
+        lcd.print("T: {:.1f} C       ".format(temp))
+
+        position -= 1
+
+        # Recommencer le cycle sans saut
+        if position < 0:
+            position = len(message) - 1
+
+        if utime.ticks_diff(t2, t1) >= 500000:
+            LED.value(not LED.value())
+            t1 = t2
+
+        utime.sleep_ms(300)
+    
+            
+            
+
+    elif temp >= temp_set:
+        buzzer.duty_u16(0)
+        lcd.clear()
+        lcd.setCursor(0, 0)
+        lcd.print("Temp: {:.1f} C".format(temp))
+        lcd.setCursor(0, 1)
+        lcd.print("Set temp: {:.1f}".format(temp_set))
+        if utime.ticks_diff(t2, t1)>=500000:
+            LED.value(not LED.value())
+            t1 = t2
+    else:
+        # Temperature normale
+        buzzer.duty_u16(0)
+        LED.value(0)
+
+        lcd.clear()
+        lcd.setCursor(0, 0)
+        lcd.print("Temp: {:.1f} C".format(temp))
+        lcd.setCursor(0, 1)
+        lcd.print("Set temp: {:.1f}".format(temp_set))
+
+    
+    
+
